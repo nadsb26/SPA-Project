@@ -121,7 +121,7 @@ def _merge_record(dst: Dict, *, variable: str, used_in: str, risk: str, usage_li
 
 def analyze_source(source: str, *, filename: str = "<source>") -> List[dict]:
     """
-    Person 3: dataflow tracking (intra-file, lightweight).
+    Dataflow tracking (intra-file, lightweight).
 
     - Find string-literal assignments and mark them tainted ("root variables").
     - Propagate taint through simple assignments (aliases / f-string / +).
@@ -328,7 +328,7 @@ def _iter_python_files(paths: List[str]) -> List[Path]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Dataflow tracking for sensitive contexts (Person 3)")
+    parser = argparse.ArgumentParser(description="Dataflow tracking for sensitive contexts")
     parser.add_argument("paths", nargs="+", help="files or directories to analyze")
     parser.add_argument("--output", "-o", default=None, help="save results to this JSON file")
     args = parser.parse_args()
