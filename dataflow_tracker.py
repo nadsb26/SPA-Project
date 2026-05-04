@@ -65,6 +65,8 @@ def _expr_contains_name_from_taint(expr: ast.AST, taint_roots: Dict[str, Set[str
     If expression contains tainted variable names, we map them to their roots.
     """
     roots: Set[str] = set()
+    if expr is None:
+        return roots
     for node in ast.walk(expr):
         if isinstance(node, ast.Name) and node.id in taint_roots:
             roots |= taint_roots[node.id]

@@ -44,6 +44,13 @@ PATTERNS = [
     ("generic_secret", re.compile(r'(?:secret|client_secret|app_secret)\s*[=:]\s*["\']([A-Za-z0-9\-_!@#$%^&*]{8,})["\']', re.IGNORECASE)),
 
     ("private_key_header", re.compile(r'(-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)')),
+
+    # Kotlin/Java map-style credential assignment: map["key"] = "value"
+    # Matches when the map variable name suggests credentials (cred, auth, pass, login)
+    ("kotlin_map_credential", re.compile(
+        r'(?:cred|auth|pass|login|secret|token)[A-Za-z]*\s*\[["\'][^"\']+["\']\]\s*=\s*["\']([^"\']{4,})["\']',
+        re.IGNORECASE
+    )),
 ]
 
 

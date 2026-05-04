@@ -3,3 +3,5 @@ __pycache__/
 pygoat/
 InsecureShop/
 benchmark_ground_truth.json
+*_report.txt
+*_findings.json
