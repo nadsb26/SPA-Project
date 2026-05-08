@@ -310,6 +310,7 @@ python benchmark.py --v2-only
  
 # Reproduce full V1 / V2 / V3 results (requires ANTHROPIC_API_KEY)
 python benchmark.py
+```
 
 ### What `benchmark.py` does
  
@@ -319,6 +320,7 @@ Because the gold-standard datasets (SecretBench and FPSecretBench) require a dat
 2. Runs the full V1 / V2 / V3 ablation study over those files
 3. Reports Precision / Recall / F1 for each pipeline version
 4. Saves ground truth labels to `benchmark_ground_truth.json` for inspection
+
 Expected output (V1 and V2 without LLM):
  
 ```
