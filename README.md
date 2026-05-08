@@ -1,6 +1,6 @@
 # Credential Leak Detector
 
-A static analysis tool that detects hardcoded credentials in Python (and Android) source code using a three-stage hybrid pipeline: **regex pattern matching → AST + dataflow analysis → LLM triage**.
+A static analysis tool that detects hardcoded credentials in Python (and Android) source code using a three-stage hybrid pipeline: **regex pattern matching -> AST + dataflow analysis -> LLM triage**.
 
 > **Authors:** Nisa Shahid, Nada Kaluderovic, Nada Beltagui, Amy Liao
 
@@ -15,6 +15,7 @@ A static analysis tool that detects hardcoded credentials in Python (and Android
 - [Quick Start](#quick-start)
 - [Usage](#usage)
 - [Pipeline Stages](#pipeline-stages)
+- [Reproducing Benchmark Results](#reproducing-benchmark-results)
 - [Evaluation](#evaluation)
 - [Running Tests](#running-tests)
 - [Example Output](#example-output)
@@ -66,7 +67,7 @@ Source Files
              ▼
 ┌─────────────────────────────┐
 │  Stage 3: LLM Triage        │  llm_explainer.py
-│  - Real vs placeholder      │  - Uses Claude claude-sonnet-4-6
+│  - Real vs placeholder      │  - Uses Claude (claude-sonnet-4-6)
 │  - Risk explanation         │  - Returns structured JSON
 │  - Actionable fix           │  - Graceful fallback on error
 └────────────┬────────────────┘
@@ -93,11 +94,14 @@ credential-leak-detector/
 ├── llm_explainer.py        # Stage 3: LLM triage via Anthropic API
 ├── report_formatter.py     # Human-readable report generator
 ├── evaluator.py            # Ablation study + precision/recall metrics
+├── benchmark.py            # Self-contained synthetic benchmark (V1/V2/V3)
 │
 ├── test_ast_parser.py      # Unit tests for AST parser
 ├── test_dataflow_tracker.py # Unit tests for dataflow tracker
 ├── test_llm_explainer.py   # Unit tests for LLM explainer + formatter
 │
+├── requirements.txt        # Python dependencies
+├── Dockerfile              # Container for reproducible execution
 └── README.md
 ```
 
@@ -109,11 +113,11 @@ credential-leak-detector/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/credential-leak-detector.git
+git clone [https://github.com/nadsb26/SPA-Project.git](https://github.com/nadsb26/SPA-Project.git)
 cd credential-leak-detector
 
 # Install dependencies
-pip install anthropic
+pip install  -r requirements.txt
 
 # (Optional) Set your Anthropic API key for LLM stage
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -246,9 +250,9 @@ Performs lightweight intra-procedural taint analysis:
 - **Taint sources**: string-literal assignments
 - **Propagation**: direct aliasing (`auth = key`), f-string use, concatenation
 - **Sensitive sinks**:
-  - HTTP requests with `Authorization` header → **high risk**
-  - HTTP requests with tainted args → **medium risk**
-  - DB connection calls (`psycopg2.connect`, `create_engine`, `MongoClient`, etc.) → **high risk**
+  - HTTP requests with `Authorization` header -> **high risk**
+  - HTTP requests with tainted args -> **medium risk**
+  - DB connection calls (`psycopg2.connect`, `create_engine`, `MongoClient`, etc.) -> **high risk**
 
 Findings without a sensitive-context match are not reported — this is the primary false-positive reduction mechanism.
 
@@ -256,7 +260,7 @@ Findings without a sensitive-context match are not reported — this is the prim
 
 ### Stage 3 — LLM Triage (`llm_explainer.py`)
 
-Sends each finding to Claude claude-sonnet-4-6 with:
+Sends each finding to Claude (claude-sonnet-4-6) with:
 - Variable name, redacted value preview, value length
 - Pattern label, file location, dataflow risk level
 
@@ -272,6 +276,80 @@ Returns structured JSON:
 
 Gracefully falls back (no crash) if the API is unavailable or returns malformed output.
 
+---
+
+## Reproducing Benchmark Results
+ 
+### Option A — Docker (recommended)
+ 
+This is the fastest way to reproduce results in a clean environment. No Python installation or manual dependency management is needed.
+ 
+```bash
+# Build the image
+docker build -t credential-leak-detector .
+ 
+# Run the synthetic benchmark (V1 + V2, no API key needed)
+docker run --rm credential-leak-detector
+ 
+# Run with LLM stage (V3) — requires an Anthropic API key
+docker run --rm -e ANTHROPIC_API_KEY=sk-ant-... credential-leak-detector \
+  python benchmark.py
+ 
+# Run the full unit test suite inside the container
+docker run --rm credential-leak-detector \
+  python -m pytest test_ast_parser.py test_dataflow_tracker.py test_llm_explainer.py -v
+```
+
+### Option B — Local Python
+ 
+```bash
+pip install -r requirements.txt
+ 
+# Reproduce V1 + V2 ablation results (no API key needed)
+python benchmark.py --v2-only
+ 
+# Reproduce full V1 / V2 / V3 results (requires ANTHROPIC_API_KEY)
+python benchmark.py
+
+### What `benchmark.py` does
+ 
+Because the gold-standard datasets (SecretBench and FPSecretBench) require a data-protection agreement to access, `benchmark.py` ships a self-contained synthetic dataset that covers all major secret types, placeholder strings, and obfuscated/dataflow cases. It:
+ 
+1. Constructs 13 controlled test files with known ground truth (11 true secrets, 11 non-secrets)
+2. Runs the full V1 / V2 / V3 ablation study over those files
+3. Reports Precision / Recall / F1 for each pipeline version
+4. Saves ground truth labels to `benchmark_ground_truth.json` for inspection
+Expected output (V1 and V2 without LLM):
+ 
+```
+============================================================
+  CREDENTIAL LEAK DETECTOR — SYNTHETIC BENCHMARK
+============================================================
+  Cases: 13 files
+  Ground truth: 11 true secrets, 11 non-secrets
+============================================================
+ 
+── V1: Regex + Keyword Scanner ─────────────────────────
+ Precision : 0.889
+ Recall    : 0.727
+ F1-score  : 0.800
+ TP=8  FP=1  FN=3
+ 
+── V2: Regex + AST + Dataflow ──────────────────────────
+ Precision : 0.889
+ Recall    : 0.727
+ F1-score  : 0.800
+ TP=8  FP=1  FN=3
+```
+ 
+### Using SecretBench (if you have access)
+ 
+If you have obtained access to SecretBench, export a slice as CSV with columns `[file, line, value, is_secret]` and run:
+ 
+```bash
+python benchmark.py --external path/to/secretbench_slice.csv --format csv --paths ./your_target_code/
+```
+ 
 ---
 
 ## Evaluation
@@ -291,6 +369,8 @@ Evaluation datasets: [SecretBench](https://github.com/setu1421/SecretBench) and 
 ---
 
 ## Running Tests
+
+All 44 unit tests run fully offline (LLM calls are mocked).
 
 ```bash
 # Run all tests
